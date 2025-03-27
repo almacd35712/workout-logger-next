@@ -1,207 +1,179 @@
-import { useEffect, useState } from 'react';
+"use client";
+import { useEffect, useState } from "react";
+import axios from "axios";
 
 export default function Home() {
-  const [day, setDay] = useState('');
-  const [exercise, setExercise] = useState('');
-  const [dayOptions, setDayOptions] = useState([]);
+  const [days, setDays] = useState([]);
+  const [selectedDay, setSelectedDay] = useState("");
   const [exerciseOptions, setExerciseOptions] = useState([]);
-  const [weight, setWeight] = useState('');
-  const [reps, setReps] = useState('');
-  const [notes, setNotes] = useState('');
+  const [selectedExercise, setSelectedExercise] = useState("");
+  const [weight, setWeight] = useState("");
+  const [reps, setReps] = useState("");
+  const [notes, setNotes] = useState("");
   const [setCount, setSetCount] = useState(1);
+  const [logStatus, setLogStatus] = useState("");
   const [showAddColumn, setShowAddColumn] = useState(false);
-  const [blockLogging, setBlockLogging] = useState(false);
-  const [statusMessage, setStatusMessage] = useState('');
 
   useEffect(() => {
     const fetchDays = async () => {
-      const res = await fetch('/api/days');
-      const data = await res.json();
-      if (Array.isArray(data)) {
-        setDayOptions(data);
-      } else {
-        console.error('Invalid day options response:', data);
-        setDayOptions([]);
-      }
+      const response = await fetch("/api/days");
+      const data = await response.json();
+      setDays(data);
     };
     fetchDays();
   }, []);
 
   useEffect(() => {
     const fetchExercises = async () => {
-      if (!day) return;
-      const res = await fetch(`/api/exercises?day=${encodeURIComponent(day)}`);
-      const data = await res.json();
-      setExerciseOptions(data);
+      if (!selectedDay) return;
+      try {
+        const response = await axios.get(`/api/exercises?day=${encodeURIComponent(selectedDay)}`);
+        if (Array.isArray(response.data)) {
+          setExerciseOptions(response.data);
+        } else {
+          setExerciseOptions([]);
+        }
+      } catch (error) {
+        console.error("Failed to fetch exercises:", error);
+        setExerciseOptions([]);
+      }
     };
+
     fetchExercises();
-  }, [day]);
+  }, [selectedDay]);
 
   useEffect(() => {
     const fetchSetCount = async () => {
-      if (!day || !exercise) return;
-      try {
-        const res = await fetch(`/api/getsetcount?day=${encodeURIComponent(day)}&exercise=${encodeURIComponent(exercise)}`);
-        const data = await res.json();
-
-        if (!isNaN(data.setCount)) {
-          setSetCount(data.setCount + 1);
-          setShowAddColumn(data.showAddColumn || false);
-
-          if (data.setCount >= 3) {
-            setBlockLogging(true);
-            setStatusMessage("You’ve already logged 3 sets for this exercise.");
-          } else {
-            setBlockLogging(false);
-            setStatusMessage('');
-          }
-        } else {
-          console.error('Invalid setCount response:', data);
-          setSetCount(1);
-          setBlockLogging(false);
-          setStatusMessage('');
-        }
-      } catch (error) {
-        console.error('Error fetching set count:', error);
-        setSetCount(1);
-        setBlockLogging(false);
-        setStatusMessage('');
+      if (selectedDay && selectedExercise) {
+        const response = await axios.get(`/api/getsetcount?day=${encodeURIComponent(selectedDay)}&exercise=${encodeURIComponent(selectedExercise)}`);
+        const data = response.data;
+        setSetCount(data.setCount + 1);
+        setShowAddColumn(data.showAddColumn);
       }
     };
     fetchSetCount();
-  }, [day, exercise]);
+  }, [selectedDay, selectedExercise]);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (blockLogging) return;
+  const handleLog = async () => {
+    const payload = {
+      day: selectedDay,
+      exercise: selectedExercise,
+      weight,
+      reps,
+      notes,
+    };
 
-    const payload = { day, exercise, weight, reps, notes };
     try {
-      const res = await fetch('/api/log', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-
-      const data = await res.json();
-      alert(data.message || 'Logged!');
-
-      setWeight('');
-      setReps('');
-      setNotes('');
+      const response = await axios.post("/api/log", payload);
+      setLogStatus("✅ Set logged!");
       setSetCount((prev) => prev + 1);
     } catch (error) {
-      console.error('Submission failed:', error);
+      setLogStatus("❌ Failed to log set");
+      console.error(error);
     }
   };
 
   const handleAddColumn = async () => {
     try {
-      const res = await fetch('/api/add-actual-column', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ day }),
-      });
-      const data = await res.json();
-      alert(data.message || 'Column added!');
-
-      // Refresh set count
-      setExercise(''); // Reset exercise to force refresh
-    } catch (error) {
-      console.error('Failed to add column:', error);
+      const response = await axios.post("/api/add-actual-column", { day: selectedDay });
+      if (response.data.success) {
+        setLogStatus("✅ New column added!");
+        setSetCount(1);
+        setShowAddColumn(false);
+      } else {
+        setLogStatus("❌ Could not add column.");
+      }
+    } catch (err) {
+      console.error("Error adding column:", err);
+      setLogStatus("❌ Error adding column.");
     }
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-900 text-white">
-      <form
-        onSubmit={handleSubmit}
-        className="bg-gray-800 p-8 rounded-lg shadow-md w-full max-w-md"
-      >
-        <h1 className="text-2xl font-bold mb-4 text-center">Workout Logger</h1>
-        <h2 className="text-lg mb-4 text-center">
-          Logging: Set {isNaN(setCount) ? 1 : setCount}
-        </h2>
+    <main className="flex min-h-screen items-center justify-center bg-gray-900 text-white">
+      <div className="w-full max-w-md p-8 rounded-lg shadow-lg bg-gray-800">
+        <h1 className="text-2xl font-bold mb-6 text-center">Workout Logger</h1>
+        <p className="text-center mb-2">Logging: Set {setCount}</p>
 
         <label className="block mb-2">Day</label>
         <select
-          className="w-full mb-4 p-2 rounded bg-gray-700 text-white"
-          value={day}
-          onChange={(e) => setDay(e.target.value)}
+          className="w-full p-2 mb-4 rounded text-black"
+          value={selectedDay}
+          onChange={(e) => {
+            setSelectedDay(e.target.value);
+            setSelectedExercise("");
+            setSetCount(1);
+            setShowAddColumn(false);
+          }}
         >
           <option value="">Select Day</option>
-          {Array.isArray(dayOptions) &&
-            dayOptions.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
+          {Array.isArray(days) &&
+            days.map((day) => (
+              <option key={day} value={day}>
+                {day}
               </option>
             ))}
         </select>
 
         <label className="block mb-2">Exercise</label>
         <select
-          className="w-full mb-4 p-2 rounded bg-gray-700 text-white"
-          value={exercise}
-          onChange={(e) => setExercise(e.target.value)}
+          className="w-full p-2 mb-4 rounded text-black"
+          value={selectedExercise}
+          onChange={(e) => setSelectedExercise(e.target.value)}
         >
           <option value="">Select Exercise</option>
-          {exerciseOptions.map((ex) => (
-            <option key={ex} value={ex}>
-              {ex}
-            </option>
-          ))}
+          {Array.isArray(exerciseOptions) &&
+            exerciseOptions.map((ex) => (
+              <option key={ex} value={ex}>
+                {ex}
+              </option>
+            ))}
         </select>
 
         <input
           type="text"
           placeholder="Weight (lbs)"
-          className="w-full mb-4 p-2 rounded bg-gray-700 text-white"
           value={weight}
           onChange={(e) => setWeight(e.target.value)}
-          disabled={blockLogging}
+          className="w-full p-2 mb-2 rounded text-black"
         />
         <input
           type="text"
           placeholder="Reps"
-          className="w-full mb-4 p-2 rounded bg-gray-700 text-white"
           value={reps}
           onChange={(e) => setReps(e.target.value)}
-          disabled={blockLogging}
+          className="w-full p-2 mb-2 rounded text-black"
         />
         <textarea
           placeholder="Notes"
-          className="w-full mb-4 p-2 rounded bg-gray-700 text-white"
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
-          disabled={blockLogging}
+          className="w-full p-2 mb-4 rounded text-black"
         />
 
-        {statusMessage && (
-          <p className="text-yellow-400 mb-4 text-center">{statusMessage}</p>
+        {setCount > 3 && !showAddColumn && (
+          <p className="text-yellow-400 mb-4">You’ve already logged 3 sets for this exercise.</p>
         )}
 
-        {showAddColumn && (
+        {showAddColumn ? (
           <button
-            type="button"
             onClick={handleAddColumn}
-            className="w-full bg-yellow-400 text-black py-2 rounded font-semibold mb-4"
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
           >
-            Add Actual Column
+            Add Actual Column for This Week
+          </button>
+        ) : (
+          <button
+            onClick={handleLog}
+            disabled={setCount > 3}
+            className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50"
+          >
+            Log Set
           </button>
         )}
 
-        <button
-          type="submit"
-          disabled={blockLogging}
-          className={`w-full py-2 rounded font-semibold ${
-            blockLogging
-              ? 'bg-gray-600 text-gray-300 cursor-not-allowed'
-              : 'bg-white text-black'
-          }`}
-        >
-          Log Set
-        </button>
-      </form>
-    </div>
+        {logStatus && <p className="mt-4 text-center">{logStatus}</p>}
+      </div>
+    </main>
   );
 }
