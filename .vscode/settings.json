@@ -1,0 +1,18 @@
+{
+    "search.useIgnoreFiles": false,
+    "search.useGlobalIgnoreFiles": false,
+    "search.exclude": {},
+    "files.exclude": {
+      "**/.git": true,
+      "**/.DS_Store": true,
+      "**/node_modules": true
+    },
+    "files.watcherExclude": {
+      "**/node_modules/**": true
+    },
+    "search.followSymlinks": false,
+    "search.useReplacePreview": false,
+    "search.smartCase": true,
+    "editor.find.autoFindInSelection": "never"
+  }
+  
