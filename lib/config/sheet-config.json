@@ -1,0 +1,13 @@
+{
+    "spreadsheetId": "1kge0xQANIYQyy61Qeh2zsuETfnb0WjIUt3h33byskjA",
+    "rawLogTab": "Workout Log",
+    "structuredTab": "March/april 2025",
+    "absTab": "Abs Log",
+    "layout": {
+      "exerciseColumn": "B",
+      "actualStartColumn": "F",
+      "maxSets": 3,
+      "warmupRowOffset": -1
+    }
+  }
+  

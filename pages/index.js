@@ -42,7 +42,6 @@ export default function Home() {
       .then((res) => res.json())
       .then((data) => {
         console.log("🔍 getsetcount response:", data);
-
         setSetCount(data.setCount || 0);
         setLastActual(data.lastActual || "");
         setPrescribed(data.prescribed || "");
@@ -147,7 +146,8 @@ export default function Home() {
         {selectedExercise && (
           <div className="bg-gray-800 rounded p-2 text-sm mb-2">
             <div>
-              <strong>Last Actual:</strong> {lastActual || "Not Logged Yet"}
+              <strong>Last Set Performed:</strong>{" "}
+              {lastActual || "Not Logged Yet"}
             </div>
             {prescribed && (
               <div>
@@ -156,6 +156,47 @@ export default function Home() {
             )}
           </div>
         )}
+
+        {/* 🔁 Suggested Weight and Warm-Up Buttons — moved here below last set */}
+        {suggestedWeight && (
+          <>
+            <button
+              className={`w-full text-white font-semibold rounded p-2 mb-2 ${
+                showSuggested ? "bg-green-700" : "bg-green-600"
+              }`}
+              onClick={() => setShowSuggested(!showSuggested)}
+            >
+              {showSuggested
+                ? "Hide Suggested Weight"
+                : "Show Suggested Weight"}
+            </button>
+            {showSuggested && (
+              <div className="bg-green-900 p-2 rounded text-sm mb-2">
+                <strong>Suggested Working Weight:</strong> {suggestedWeight} lbs
+              </div>
+            )}
+          </>
+        )}
+
+        {warmupSets.length > 0 && (
+          <>
+            <button
+              className={`w-full text-white font-semibold rounded p-2 mb-2 ${
+                showWarmups ? "bg-purple-700" : "bg-purple-600"
+              }`}
+              onClick={() => setShowWarmups(!showWarmups)}
+            >
+              {showWarmups ? "Hide Warm-Ups" : "Show Warm-Ups"}
+            </button>
+            {showWarmups && (
+              <div className="bg-purple-900 p-2 rounded text-sm mb-2">
+                <strong>WU:</strong>{" "}
+                {warmupSets.map((s) => `${s.weight}x${s.reps}`).join(", ")}
+              </div>
+            )}
+          </>
+        )}
+
 
         <input
           type="text"
@@ -189,49 +230,49 @@ export default function Home() {
           <p className="text-sm text-center mb-4 text-yellow-400">{message}</p>
         )}
 
-        {suggestedWeight && (
-          <>
-            <button
-              className={`w-full text-white font-semibold rounded p-2 mb-2 ${
-                showSuggested ? "bg-green-700" : "bg-green-600"
-              }`}
-              onClick={() => setShowSuggested(!showSuggested)}
-            >
-              {showSuggested
-                ? "Hide Suggested Weight"
-                : "Show Suggested Weight"}
-            </button>
-            {showSuggested && (
-              <div className="bg-green-900 p-2 rounded text-sm mb-2">
-                <strong>Suggested Working Weight:</strong> {suggestedWeight} lbs
-              </div>
-            )}
-          </>
+        {/* Max Sets Reached Warning */}
+        {setCount >= 3 && (
+          <div className="text-red-500 text-center mb-4 font-semibold">
+            Max sets reached for this exercise. All 3 sets logged.
+          </div>
         )}
 
-        {warmupSets.length > 0 && (
-          <>
-            <button
-              className={`w-full text-white font-semibold rounded p-2 mb-2 ${
-                showWarmups ? "bg-purple-700" : "bg-purple-600"
-              }`}
-              onClick={() => setShowWarmups(!showWarmups)}
-            >
-              {showWarmups ? "Hide Warm-Ups" : "Show Warm-Ups"}
-            </button>
-            {showWarmups && (
-              <div className="bg-purple-900 p-2 rounded text-sm mb-2">
-                <strong>Warm-Up Sets:</strong>
-                <ul className="list-disc ml-5 mt-1">
-                  {warmupSets.map((set, i) => (
-                    <li key={i}>
-                      WU: {set.weight} x {set.reps}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </>
+        {/* Reset Button */}
+        {selectedExercise && (
+          <button
+            className="w-full p-2 bg-red-600 text-white font-bold rounded mb-2 hover:bg-red-700"
+            onClick={() => {
+              setWeight("");
+              setReps("");
+              setNotes("");
+              setMessage("");
+              setShowSuggested(false);
+              setShowWarmups(false);
+            }}
+          >
+            Reset
+          </button>
+        )}
+
+        {/* Add Actual Column Button */}
+        {setCount >= 3 && (
+          <button
+            className="w-full p-2 bg-indigo-600 text-white font-bold rounded hover:bg-indigo-700 mb-2"
+            onClick={async () => {
+              const res = await fetch("/api/logging/addactualcolumn", {
+                method: "POST",
+              });
+
+              if (res.ok) {
+                setMessage("🆕 Added new 'Actual' column.");
+                refreshSetData();
+              } else {
+                setMessage("❌ Failed to add column.");
+              }
+            }}
+          >
+            ➕ Add Actual Column
+          </button>
         )}
       </div>
     </main>
