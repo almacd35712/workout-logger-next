@@ -1,5 +1,6 @@
 // pages/api/test-exercises.js
 import exerciseMap from '@/lib/exerciseMap';
+console.log("🔧 [DEBUG] Loaded: ../archive/dev/test-exercises.js");
 const days = Object.keys(exerciseMap);
 
 export default async function handler(req, res) {

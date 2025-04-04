@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
+console.log("🔧 [DEBUG] Loaded: ../pages/saved-ui/clean-ui-mobile-first.js");
 
 export default function Home() {
   const [dayOptions, setDayOptions] = useState([]);

@@ -1,4 +1,5 @@
 export function colToA1(colIndex) {
+  console.log("🔧 [DEBUG] Loaded: ../pages/api/logging/logset.js");
     let col = "";
     let n = colIndex;
     while (n >= 0) {

@@ -3,6 +3,7 @@ import { google } from "googleapis";
 import path from "path";
 import fs from "fs";
 import { getSheetConfig } from "../../lib/utils/getSheetConfig.js";
+console.log("🔧 [DEBUG] Loaded: ../scripts/dev/test-sheet-config.js");
 
 async function main() {
   try {

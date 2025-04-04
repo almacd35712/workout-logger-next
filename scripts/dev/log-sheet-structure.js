@@ -4,6 +4,7 @@ import path from "path";
 import fs from "fs";
 import { google } from "googleapis";
 import { getSheetConfig } from "../../lib/utils/getSheetConfig.js";
+console.log("🔧 [DEBUG] Loaded: ../scripts/dev/log-sheet-structure.js");
 
 async function main() {
   const config = getSheetConfig();
@@ -30,6 +31,14 @@ async function main() {
   const colIndex = config.layout.exerciseColumn.charCodeAt(0) - 65;
 
   console.log(`📊 Scanning Sheet: "${sheetName}" (Exercise column = ${config.layout.exerciseColumn})`);
+
+  console.log("\n🔎 Scanning raw values in column B (exercise column):");
+  rows.forEach((row, i) => {
+  const val = row[colIndex] || "";
+  if (val.trim()) {
+    console.log(`  [${i + 1}] "${val}"`);
+  }
+});
 
   let currentDay = "";
   for (let i = 0; i < rows.length; i++) {

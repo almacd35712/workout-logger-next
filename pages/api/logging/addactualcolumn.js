@@ -3,6 +3,7 @@ import fs from "fs";
 import path from "path";
 import { getSheetConfig } from "../../../lib/utils/getSheetConfig";
 import { colToA1 } from "../../../lib/utils/sheetHelpers";
+console.log("🔧 [DEBUG] Loaded: ../pages/api/logging/addactualcolumn.js");
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {

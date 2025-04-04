@@ -17,11 +17,19 @@ export default function Home() {
   const [showSuggested, setShowSuggested] = useState(false);
   const [showWarmups, setShowWarmups] = useState(false);
   const [message, setMessage] = useState("");
+  const [selectedDayLabel, setSelectedDayLabel] = useState("");
 
   useEffect(() => {
     fetch("/api/setup/days")
       .then((res) => res.json())
-      .then((data) => setDayOptions(data));
+      .then((data) =>
+        setDayOptions(
+          data.map((d) => ({
+            label: d.label, // "Day 1"
+            value: d.value, // "Chest"
+          }))
+        )
+      );
   }, []);
 
   useEffect(() => {
@@ -50,6 +58,12 @@ export default function Home() {
       })
       .catch((err) => {
         console.error("❌ Error fetching getsetcount:", err);
+        setMessage("❌ Could not fetch data for this exercise.");
+        setSetCount(0);
+        setLastActual("");
+        setPrescribed("");
+        setSuggestedWeight(null);
+        setWarmupSets([]);
       });
   };
 
@@ -95,53 +109,55 @@ export default function Home() {
         <h1 className="text-2xl font-bold text-center mb-1">Workout Logger</h1>
         {selectedDay && selectedExercise && (
           <p className="text-sm text-center mb-4 text-gray-300">
-            Logging: Set {setCount + 1}
+            Logging: Set {setCount + 1} for {selectedDayLabel}
           </p>
         )}
 
-        <div className="mb-2">
-          <select
-            className="w-full p-2 bg-gray-800 text-white rounded mb-2"
-            value={selectedDay}
-            onChange={(e) => {
-              setSelectedDay(e.target.value);
-              setSelectedExercise("");
-              setSetCount(0);
-              setLastActual("");
-              setPrescribed("");
-              setSuggestedWeight(null);
-              setWarmupSets([]);
-              setShowWarmups(false);
-              setShowSuggested(false);
-              setMessage("");
-            }}
-          >
-            <option value="">Select Day</option>
-            {dayOptions.map((d) => (
-              <option key={d.value} value={d.value}>
-                {d.label}
+        <select
+          className="w-full p-2 bg-gray-800 text-white rounded mb-2"
+          value={selectedDay}
+          onChange={(e) => {
+            const rawLabel = e.target.value; // Get the selected label
+            const matchedDay = dayOptions.find((d) => d.label === rawLabel); // Find the matching day by label
+            const actualValue = matchedDay?.value || ""; // Get the actual value (e.g., "Chest")
+            setSelectedDay(actualValue); // Set the value to be sent to the backend
+            setSelectedDayLabel(rawLabel); // Set the label for display purposes
+            setSelectedExercise("");
+            setSetCount(0);
+            setLastActual("");
+            setPrescribed("");
+            setSuggestedWeight(null);
+            setWarmupSets([]);
+            setShowWarmups(false);
+            setShowSuggested(false);
+            setMessage("");
+          }}
+        >
+          <option value="">Select Day</option>
+          {dayOptions.map((d) => (
+            <option key={d.label} value={d.label}>
+              {d.label}
+            </option>
+          ))}
+        </select>
+
+        <select
+          className="w-full p-2 bg-gray-800 text-white rounded"
+          value={selectedExercise}
+          onChange={(e) => {
+            setSelectedExercise(e.target.value);
+            setMessage("");
+          }}
+          disabled={!selectedDay}
+        >
+          <option value="">Select Exercise</option>
+          {Array.isArray(exerciseOptions) &&
+            exerciseOptions.map((ex) => (
+              <option key={ex.value} value={ex.value}>
+                {ex.label}
               </option>
             ))}
-          </select>
-
-          <select
-            className="w-full p-2 bg-gray-800 text-white rounded"
-            value={selectedExercise}
-            onChange={(e) => {
-              setSelectedExercise(e.target.value);
-              setMessage("");
-            }}
-            disabled={!selectedDay}
-          >
-            <option value="">Select Exercise</option>
-            {Array.isArray(exerciseOptions) &&
-              exerciseOptions.map((ex) => (
-                <option key={ex.value} value={ex.value}>
-                  {ex.label}
-                </option>
-              ))}
-          </select>
-        </div>
+        </select>
 
         {selectedExercise && (
           <div className="bg-gray-800 rounded p-2 text-sm mb-2">
@@ -157,7 +173,6 @@ export default function Home() {
           </div>
         )}
 
-        {/* 🔁 Suggested Weight and Warm-Up Buttons — moved here below last set */}
         {suggestedWeight && (
           <>
             <button
@@ -197,7 +212,6 @@ export default function Home() {
           </>
         )}
 
-
         <input
           type="text"
           className="w-full p-2 mb-2 rounded bg-gray-700 text-white"
@@ -230,14 +244,12 @@ export default function Home() {
           <p className="text-sm text-center mb-4 text-yellow-400">{message}</p>
         )}
 
-        {/* Max Sets Reached Warning */}
         {setCount >= 3 && (
           <div className="text-red-500 text-center mb-4 font-semibold">
             Max sets reached for this exercise. All 3 sets logged.
           </div>
         )}
 
-        {/* Reset Button */}
         {selectedExercise && (
           <button
             className="w-full p-2 bg-red-600 text-white font-bold rounded mb-2 hover:bg-red-700"
@@ -254,7 +266,6 @@ export default function Home() {
           </button>
         )}
 
-        {/* Add Actual Column Button */}
         {setCount >= 3 && (
           <button
             className="w-full p-2 bg-indigo-600 text-white font-bold rounded hover:bg-indigo-700 mb-2"
