@@ -4,15 +4,13 @@
   "type": "module",
   "private": true,
   "scripts": {
-  "dev": "node -r ./scripts/suppressDebugLogs.js -r ./scripts/setupDebugPatch.js ./node_modules/next/dist/bin/next dev",
-  "log-sheet-structure": "node -r ./scripts/suppressDebugLogs.js scripts/dev/log-sheet-structure.js",
-  "build": "next build",
-  "start": "next start",
-  "lint": "next lint"
-},
-
+    "dev": "node -r ./scripts/setupDebugPatch.js ./node_modules/next/dist/bin/next dev",
+    "watch-errors": "node ./scripts/dev/watchErrors.js",
+    "dev:watch": "concurrently \"npm run dev\" \"npm run watch-errors\""
+  },
   "dependencies": {
     "axios": "^1.8.4",
+    "clipboardy": "^4.0.0",
     "googleapis": "^148.0.0",
     "next": "15.2.4",
     "react": "^19.0.0",
@@ -21,6 +19,7 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
+    "concurrently": "^9.1.2",
     "eslint": "^9",
     "eslint-config-next": "15.2.4",
     "tailwindcss": "^4"

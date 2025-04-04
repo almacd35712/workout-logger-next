@@ -1,65 +1,146 @@
-// pages/api/logging/getsetcount.js
-import { findExerciseRow } from "@/lib/utils/findExerciseRow";
-import { getSheetConfig } from "@/lib/utils/getSheetConfig";
+"use strict";
 import { google } from "googleapis";
+import fs from "fs";
+import path from "path";
+import { getSheetConfig } from "../../../lib/utils/getSheetConfig.js";
 
+// Utility: Normalize strings (trim and lowercase)
+const normalize = (str) => str.trim().toLowerCase();
+
+/**
+ * API Route handler for getsetcount.
+ * Expects query parameters: day & exercise.
+ */
 export default async function handler(req, res) {
   try {
     const { day, exercise } = req.query;
-    console.log("🐾 [CHECKPOINT] Received query:", { day, exercise });
-
-    const rowIndex = await findExerciseRow(day, exercise);
-    if (typeof rowIndex !== "number" || rowIndex < 0) {
-      console.warn(`⚠️ Could not locate row for exercise: ${exercise} on day: ${day}`);
-      return res.status(404).json({ error: "Exercise row not found." });
+    if (!day || !exercise) {
+      return res.status(400).json({ error: "Missing day or exercise parameter" });
     }
 
-    const sheetConfig = getSheetConfig();
-
-    const auth = new google.auth.GoogleAuth({
-      keyFile: "lib/keys/credentials.json",
-      scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"],
-    });
-
-    const sheets = google.sheets({ version: "v4", auth });
-    const fullRowRange = `${sheetConfig.title}!A${rowIndex + 1}:Z${rowIndex + 1}`;
-    const { data: rowData } = await sheets.spreadsheets.values.get({
-      spreadsheetId: sheetConfig.sheetId,
-      range: fullRowRange,
-    });
-
-    const row = rowData.values?.[0] || [];
-    const actualStartIndex = columnLetterToIndex(sheetConfig.layout.actualStartColumn);
-    const actuals = row.slice(actualStartIndex, actualStartIndex + sheetConfig.layout.maxSets).filter(Boolean);
-
-    const warmupRow = rowIndex + sheetConfig.layout.warmupRowOffset;
-    const { data: warmupData } = await sheets.spreadsheets.values.get({
-      spreadsheetId: sheetConfig.sheetId,
-      range: `${sheetConfig.title}!A${warmupRow + 1}:Z${warmupRow + 1}`,
-    });
-
-    const warmupRowVals = warmupData.values?.[0] || [];
-    const warmupSets = warmupRowVals
-      .slice(actualStartIndex, actualStartIndex + sheetConfig.layout.maxSets)
-      .map((val) => {
-        const [weight, reps] = val.split("x").map((s) => s.trim());
-        return { weight, reps };
-      })
-      .filter((s) => s.weight && s.reps);
-
-    res.status(200).json({
-      setCount: actuals.length,
-      lastActual: actuals[actuals.length - 1] || "",
-      prescribed: row[actualStartIndex - 1] || "",
-      suggestedWeight: row[actualStartIndex + sheetConfig.layout.maxSets] || null,
-      warmupSets,
-    });
+    const result = await getSetCount(day, exercise);
+    res.status(200).json(result);
   } catch (err) {
-    console.error("💥 [ERROR] Failed in getsetcount:", err);
-    res.status(500).json({ error: "Internal server error." });
+    console.error("Error in getsetcount:", err.message);
+    res.status(500).json({ error: err.message });
   }
 }
 
-function columnLetterToIndex(letter) {
-  return letter.toUpperCase().charCodeAt(0) - 65;
+/**
+ * getSetCount: Loads the Google Sheet data and returns:
+ * - setCount: number of actual sets logged
+ * - lastActual: value of the last logged set
+ * - prescribed: (placeholder) prescribed weight info
+ * - suggestedWeight: (placeholder) suggested weight info
+ * - warmupSets: an array of warm-up set strings (parsed from warm-up row)
+ *
+ * The function uses the layout info from sheet-config.json.
+ */
+export async function getSetCount(day, exercise) {
+  // Load configuration from sheet-config.json
+  const config = getSheetConfig();
+  const spreadsheetId = config.spreadsheetId;
+  const sheetName = config.structuredTab; // using the structured tab
+
+  // Load Google Sheets API credentials
+  const credentialsPath = path.join(process.cwd(), "lib/keys/credentials.json");
+  const credentials = JSON.parse(fs.readFileSync(credentialsPath, "utf8"));
+
+  const auth = new google.auth.GoogleAuth({
+    credentials,
+    scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"],
+  });
+
+  const sheets = google.sheets({
+    version: "v4",
+    auth: await auth.getClient(),
+  });
+
+  // Fetch all data from the structured tab
+  const range = `'${sheetName}'`;
+  const response = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range,
+  });
+  const rows = response.data.values;
+  if (!rows || rows.length === 0) {
+    throw new Error("No data found in the sheet.");
+  }
+
+  console.log(`Found ${rows.length} rows in sheet "${sheetName}".`);
+
+  // Normalize input day and exercise for matching
+  const targetDay = normalize(day);
+  const targetExercise = normalize(exercise);
+
+  // Find the row index where the day header appears (assumes day is in the first column)
+  let dayRowIndex = -1;
+  for (let i = 0; i < rows.length; i++) {
+    const cell = rows[i][0] || "";
+    if (normalize(cell).includes(targetDay)) {
+      dayRowIndex = i;
+      console.log(`Day "${day}" found at row ${i + 1} (cell: "${cell}").`);
+      break;
+    }
+  }
+  if (dayRowIndex === -1) {
+    throw new Error(`Could not find day "${day}" in the sheet.`);
+  }
+
+  // Determine the column index where exercises are listed
+  const exerciseColIndex = config.layout.exerciseColumn.charCodeAt(0) - 65;
+
+  // Search for the exercise row within the current day section.
+  // We assume that once a new day header is encountered, the current section ends.
+  let exerciseRowIndex = -1;
+  for (let i = dayRowIndex + 1; i < rows.length; i++) {
+    const row = rows[i];
+    // Check if a new day header appears (assuming headers start with "day")
+    const firstCell = row[0] || "";
+    if (firstCell && normalize(firstCell).startsWith("day")) {
+      console.log(`Reached new day section at row ${i + 1}.`);
+      break;
+    }
+    const cellValue = row[exerciseColIndex] || "";
+    if (normalize(cellValue) === targetExercise) {
+      exerciseRowIndex = i;
+      console.log(`Exercise "${exercise}" found at row ${i + 1} (cell: "${cellValue}").`);
+      break;
+    }
+  }
+  if (exerciseRowIndex === -1) {
+    throw new Error(`Could not locate exercise "${exercise}" under day "${day}".`);
+  }
+
+  // Calculate the number of working sets logged.
+  // Using the actual set columns starting from the configured column.
+  const startColIndex = config.layout.actualStartColumn.charCodeAt(0) - 65;
+  const maxSets = config.layout.maxSets || 3;
+  let setCount = 0;
+  let lastActual = "";
+  for (let i = startColIndex; i < startColIndex + maxSets; i++) {
+    const cell = rows[exerciseRowIndex][i] || "";
+    if (cell.trim() !== "") {
+      setCount++;
+      lastActual = cell;
+    }
+  }
+
+  // Warm-up sets: located at the row offset specified in config (typically above the exercise row)
+  let warmupSets = [];
+  const warmupRowIndex = exerciseRowIndex + config.layout.warmupRowOffset;
+  if (warmupRowIndex >= 0 && rows[warmupRowIndex]) {
+    const warmupCell = rows[warmupRowIndex][startColIndex] || "";
+    if (warmupCell.startsWith("WU:")) {
+      const warmupStr = warmupCell.replace("WU:", "").trim();
+      // Parse the warm-up sets into an array (e.g., ["30x10", "40x6", "55x3"])
+      warmupSets = warmupStr.split(",").map((s) => s.trim());
+    }
+  }
+
+  // Placeholders for additional metadata—update with your logic if needed.
+  const prescribed = "";
+  const suggestedWeight = null;
+
+  return { setCount, lastActual, prescribed, suggestedWeight, warmupSets };
 }
