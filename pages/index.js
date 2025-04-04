@@ -19,6 +19,7 @@ export default function Home() {
   const [message, setMessage] = useState("");
   const [selectedDayLabel, setSelectedDayLabel] = useState("");
 
+
   useEffect(() => {
     fetch("/api/setup/days")
       .then((res) => res.json())
@@ -284,6 +285,28 @@ export default function Home() {
           >
             ➕ Add Actual Column
           </button>
+        )}
+
+        {setCount > 0 && (
+          <div style={{ marginTop: "20px" }}>
+            <h3>Logged Set Info</h3>
+            <p><strong>Set Count:</strong> {setCount}</p>
+            <p><strong>Last Actual:</strong> {lastActual}</p>
+            {prescribed && <p><strong>Prescribed:</strong> {prescribed}</p>}
+            {suggestedWeight && (
+              <p><strong>Suggested Weight:</strong> {suggestedWeight}</p>
+            )}
+            {warmupSets.length > 0 && (
+              <div>
+                <strong>Warm-up Sets:</strong>
+                <ul>
+                  {warmupSets.map((wu, idx) => (
+                    <li key={idx}>{wu}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
         )}
       </div>
     </main>

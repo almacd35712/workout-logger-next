@@ -4,12 +4,12 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "node -r ./scripts/setupDebugPatch.js ./node_modules/next/dist/bin/next dev",
-    "watch-errors": "node ./scripts/dev/watchErrors.js",
-    "dev:watch": "concurrently \"npm run dev\" \"npm run watch-errors\""
+    "dev": "next dev",
+    "dev:clip": "node scripts/dev/watchErrorsFromStderr.js"
   },
   "dependencies": {
     "axios": "^1.8.4",
+    "chokidar": "^4.0.3",
     "clipboardy": "^4.0.0",
     "googleapis": "^148.0.0",
     "next": "15.2.4",

@@ -39,8 +39,16 @@ export default async function handler(req, res) {
 export async function getSetCount(day, exercise) {
   // Load configuration from sheet-config.json
   const config = getSheetConfig();
-  const spreadsheetId = config.spreadsheetId;
-  const sheetName = config.structuredTab; // using the structured tab
+  const spreadsheetId = config.sheetId; // Updated to use config.sheetId
+  const sheetName = config.structuredTab;
+
+  // Debugging: Log the spreadsheet ID and sheet name
+  console.log("📄 [DEBUG] Spreadsheet ID:", spreadsheetId);
+  console.log("📄 [DEBUG] Sheet Name:", sheetName);
+
+  if (!spreadsheetId) {
+    throw new Error("Missing required parameter: spreadsheetId");
+  }
 
   // Load Google Sheets API credentials
   const credentialsPath = path.join(process.cwd(), "lib/keys/credentials.json");
@@ -143,4 +151,17 @@ export async function getSetCount(day, exercise) {
   const suggestedWeight = null;
 
   return { setCount, lastActual, prescribed, suggestedWeight, warmupSets };
+}
+
+export function getSheetConfig() {
+  return {
+    spreadsheetId: "1kge0xQANIYQyy61Qeh2zsuETfnb0WjIUt3h33byskjA", // Replace with your actual spreadsheet ID
+    title: "March/april 2025",
+    layout: {
+      exerciseColumn: "B",
+      actualStartColumn: "F",
+      maxSets: 3,
+      warmupRowOffset: -1,
+    },
+  };
 }
