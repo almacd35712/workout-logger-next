@@ -18,6 +18,7 @@ export default function Home() {
   const [showSuggested, setShowSuggested] = useState(false);
   const [showWarmups, setShowWarmups] = useState(false);
   const [message, setMessage] = useState("");
+  const [warmupsLogged, setWarmupsLogged] = useState(false); // 👈 NEW
 
   // Load Day Options
   useEffect(() => {
@@ -84,12 +85,23 @@ export default function Home() {
       return;
     }
 
+    let finalNotes = notes.trim();
+
+    // Add warm-up sets to notes if it's the first set and warm-ups haven't been logged
+    if (sessionSetCount === 0 && warmupSets.length > 0 && !warmupsLogged) {
+      const wuString = warmupSets.map((s) => `${s.weight}x${s.reps}`).join(', ');
+      finalNotes = `${finalNotes ? finalNotes + '\n' : ''}WU: ${wuString}`;
+      setWarmupsLogged(true); // Mark warm-ups as logged
+    }
+
     const payload = {
       day: selectedDay,
       exercise: selectedExercise,
       weight,
       reps,
-      notes,
+      notes: finalNotes,
+      warmupSets, // Send warm-up sets from state
+      currentSetNumber: sessionSetCount, // Send sessionSetCount (0-based)
     };
 
     const res = await fetch("/api/logging/logset", {
@@ -103,7 +115,7 @@ export default function Home() {
       setWeight("");
       setReps("");
       setNotes("");
-      setSessionSetCount((prev) => prev + 1); // 👈 increment session count
+      setSessionSetCount((prev) => prev + 1); // Increment session count
       refreshSetData();
     } else {
       setMessage("❌ Failed to log set.");
