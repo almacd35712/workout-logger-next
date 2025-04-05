@@ -50,7 +50,8 @@ export default function Home() {
       .then((res) => res.json())
       .then((data) => {
         setSetCount(data.setCount || 0);
-        setLastActual(data.lastActual || "");
+        const cleanLast = data.lastActual?.split('(')[0].trim(); // remove any inline notes
+        setLastActual(cleanLast || "");
         setPrescribed(data.prescribed || "");
         setWarmupSets(data.warmupSets || []);
         setSuggestedWeight(data.suggestedWeight || null);
@@ -86,13 +87,6 @@ export default function Home() {
     }
 
     let finalNotes = notes.trim();
-
-    // Add warm-up sets to notes if it's the first set and warm-ups haven't been logged
-    if (sessionSetCount === 0 && warmupSets.length > 0 && !warmupsLogged) {
-      const wuString = warmupSets.map((s) => `${s.weight}x${s.reps}`).join(', ');
-      finalNotes = `${finalNotes ? finalNotes + '\n' : ''}WU: ${wuString}`;
-      setWarmupsLogged(true); // Mark warm-ups as logged
-    }
 
     const payload = {
       day: selectedDay,
@@ -317,7 +311,7 @@ export default function Home() {
           <p className="text-sm text-center mb-4 text-yellow-400">{message}</p>
         )}
 
-        {setCount >= 3 && (
+        {sessionSetCount >= 3 && (
           <div className="text-red-500 text-center mb-4 font-semibold">
             Max sets reached for this exercise. All 3 sets logged.
           </div>

@@ -1,10 +1,9 @@
-
 import { google } from 'googleapis';
 import path from 'path';
 import fs from 'fs';
 import { getSheetData } from '../../../lib/sheets/getSheetData';
 
-const SHEET_ID = 'YOUR_SHEET_ID_HERE'; // replace with your actual sheet ID
+const SHEET_ID = '1kge0xQANIYQyy61Qeh2zsuETfnb0WjIUt3h33byskjA'; // replace with your actual sheet ID
 const SHEET_NAME = 'March/april 2025'; // exact match to sheet tab
 const CREDENTIALS_PATH = path.join(process.cwd(), 'lib', 'keys', 'credentials.json');
 
@@ -61,7 +60,9 @@ export default async function handler(req, res) {
       spreadsheetId: SHEET_ID,
       range: `${SHEET_NAME}!${colLetter}${rowNumber}`,
       valueInputOption: 'RAW',
-      requestBody: { values: [[`${weight}x${reps}${notes ? ' (' + notes + ')' : ''}`]] },
+      requestBody: { 
+        values: [[`${weight}x${reps}${(notes && !notes.includes('WU:')) ? ' (' + notes + ')' : ''}`]] 
+      },
     });
 
     console.log(`✅ Logged main set to ${colLetter}${rowNumber}`);

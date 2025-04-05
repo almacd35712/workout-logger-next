@@ -82,15 +82,20 @@ export default async function handler(req, res) {
     const setCount = actualValues.length;
     const lastActual = actualValues[actualValues.length - 1] || '';
 
-    // Find first non-empty prescribed value from columns 4, 6, 8...
-    const prescribedIndexes = [4, 6, 8, 10]; // Add more if needed
+    // Determine the prescribed value based on how many actual sets are already filled in
     let prescribed = '';
+    const prescribedIndexes = headers
+      .map((h, i) => h?.toLowerCase().startsWith('prescribed') ? i : -1)
+      .filter(i => i !== -1);
 
-    for (const i of prescribedIndexes) {
-      if (row[i] && typeof row[i] === 'string' && row[i].trim()) {
-        prescribed = row[i].split('(')[0].replace(/\s+/g, '').trim(); // Clean off notes and remove spaces
-        break;
-      }
+    // Match prescribed to the next actual set count (i.e. 0 = first prescribed, 1 = second...)
+    const nextPrescribedColIndex = prescribedIndexes[setCount] || prescribedIndexes[0];
+
+    if (row[nextPrescribedColIndex]) {
+      prescribed = row[nextPrescribedColIndex]
+        .split('(')[0]
+        .replace(/\s+/g, '')
+        .trim();
     }
 
     console.log('📌 Prescribed raw:', row[2]); // Add this line for debugging
