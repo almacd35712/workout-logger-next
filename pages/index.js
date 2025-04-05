@@ -6,7 +6,8 @@ export default function Home() {
   const [exerciseOptions, setExerciseOptions] = useState([]);
   const [selectedDay, setSelectedDay] = useState("");
   const [selectedExercise, setSelectedExercise] = useState("");
-  const [setCount, setSetCount] = useState(0);
+  const [sessionSetCount, setSessionSetCount] = useState(0); // 👈 NEW
+  const [setCount, setSetCount] = useState(0); // from history (leave this)
   const [lastActual, setLastActual] = useState("");
   const [prescribed, setPrescribed] = useState("");
   const [weight, setWeight] = useState("");
@@ -17,29 +18,26 @@ export default function Home() {
   const [showSuggested, setShowSuggested] = useState(false);
   const [showWarmups, setShowWarmups] = useState(false);
   const [message, setMessage] = useState("");
-  const [selectedDayLabel, setSelectedDayLabel] = useState("");
 
-
+  // Load Day Options
   useEffect(() => {
     fetch("/api/setup/days")
       .then((res) => res.json())
-      .then((data) =>
-        setDayOptions(
-          data.map((d) => ({
-            label: d.label, // "Day 1"
-            value: d.value, // "Chest"
-          }))
-        )
-      );
+      .then((data) => setDayOptions(data));
   }, []);
 
+  // Load Exercises for Selected Day
   useEffect(() => {
     if (!selectedDay) return;
     fetch(`/api/setup/exercises?day=${encodeURIComponent(selectedDay)}`)
       .then((res) => res.json())
-      .then((data) => setExerciseOptions(data));
+      .then((data) => {
+        console.log("✅ Exercises loaded:", data);
+        setExerciseOptions(data);
+      });
   }, [selectedDay]);
 
+  // Load Set Count and Metadata
   const refreshSetData = () => {
     if (!selectedDay || !selectedExercise) return;
 
@@ -50,29 +48,37 @@ export default function Home() {
     )
       .then((res) => res.json())
       .then((data) => {
-        console.log("🔍 getsetcount response:", data);
         setSetCount(data.setCount || 0);
         setLastActual(data.lastActual || "");
         setPrescribed(data.prescribed || "");
-        setSuggestedWeight(data.suggestedWeight || null);
         setWarmupSets(data.warmupSets || []);
+        setSuggestedWeight(data.suggestedWeight || null);
+
+        if (data.lastActual) {
+          const match = data.lastActual.match(/^(\d+)\s*x\s*(\d+)$/i);
+          if (match) {
+            const lastWeight = parseInt(match[1], 10);
+            const lastReps = parseInt(match[2], 10);
+            const rir = 2;
+            const adjustment = rir * 5;
+            const suggested = Math.max(lastWeight - adjustment, 0);
+            setSuggestedWeight({
+              weight: suggested.toFixed(1),
+              reps: lastReps,
+            });
+          }
+        }
       })
       .catch((err) => {
         console.error("❌ Error fetching getsetcount:", err);
-        setMessage("❌ Could not fetch data for this exercise.");
-        setSetCount(0);
-        setLastActual("");
-        setPrescribed("");
-        setSuggestedWeight(null);
-        setWarmupSets([]);
       });
   };
 
   useEffect(() => {
     refreshSetData();
-  }, [selectedDay, selectedExercise]);
+  }, [selectedExercise]);
 
-  const handleSubmit = async () => {
+  const handleLogSet = async () => {
     if (!selectedDay || !selectedExercise || !weight || !reps) {
       setMessage("Please complete all required fields.");
       return;
@@ -92,37 +98,57 @@ export default function Home() {
       body: JSON.stringify(payload),
     });
 
-    const result = await res.json();
     if (res.ok) {
       setMessage("✅ Set logged!");
       setWeight("");
       setReps("");
       setNotes("");
+      setSessionSetCount((prev) => prev + 1); // 👈 increment session count
       refreshSetData();
     } else {
       setMessage("❌ Failed to log set.");
     }
   };
 
+  const handleReset = () => {
+    setWeight("");
+    setReps("");
+    setNotes("");
+    setSetCount(0);
+    setMessage("");
+    setShowSuggested(false);
+    setShowWarmups(false);
+    refreshSetData();
+  };
+
+  const handleAddActualColumn = async () => {
+    const res = await fetch("/api/logging/addactualcolumn", { method: "POST" });
+
+    if (res.ok) {
+      setMessage("🆕 Added new 'Actual' column.");
+      refreshSetData();
+    } else {
+      setMessage("❌ Failed to add column.");
+    }
+  };
+
   return (
     <main className="min-h-screen bg-[#0b132b] text-white flex items-center justify-center p-4">
       <div className="w-full max-w-md bg-[#1c2541] p-6 rounded-lg shadow-lg">
-        <h1 className="text-2xl font-bold text-center mb-1">Workout Logger</h1>
+        <h1 className="text-2xl font-bold text-center mb-3">Workout Logger</h1>
+
         {selectedDay && selectedExercise && (
-          <p className="text-sm text-center mb-4 text-gray-300">
-            Logging: Set {setCount + 1} for {selectedDayLabel}
+          <p className="text-sm text-center mb-2 text-gray-300">
+            Logging: Set {sessionSetCount + 1}
           </p>
         )}
 
+        {/* Select Day */}
         <select
           className="w-full p-2 bg-gray-800 text-white rounded mb-2"
           value={selectedDay}
           onChange={(e) => {
-            const rawLabel = e.target.value; // Get the selected label
-            const matchedDay = dayOptions.find((d) => d.label === rawLabel); // Find the matching day by label
-            const actualValue = matchedDay?.value || ""; // Get the actual value (e.g., "Chest")
-            setSelectedDay(actualValue); // Set the value to be sent to the backend
-            setSelectedDayLabel(rawLabel); // Set the label for display purposes
+            setSelectedDay(e.target.value);
             setSelectedExercise("");
             setSetCount(0);
             setLastActual("");
@@ -132,18 +158,20 @@ export default function Home() {
             setShowWarmups(false);
             setShowSuggested(false);
             setMessage("");
+            setSessionSetCount(0); // 👈 reset session tracking
           }}
         >
           <option value="">Select Day</option>
           {dayOptions.map((d) => (
-            <option key={d.label} value={d.label}>
+            <option key={d.value} value={d.value}>
               {d.label}
             </option>
           ))}
         </select>
 
+        {/* Select Exercise */}
         <select
-          className="w-full p-2 bg-gray-800 text-white rounded"
+          className="w-full p-2 bg-gray-800 text-white rounded mb-4"
           value={selectedExercise}
           onChange={(e) => {
             setSelectedExercise(e.target.value);
@@ -160,87 +188,119 @@ export default function Home() {
             ))}
         </select>
 
+        {/* Show Logging Panel */}
         {selectedExercise && (
-          <div className="bg-gray-800 rounded p-2 text-sm mb-2">
-            <div>
-              <strong>Last Set Performed:</strong>{" "}
-              {lastActual || "Not Logged Yet"}
-            </div>
-            {prescribed && (
+          <>
+
+            {/* Warm-Up Toggle */}
+            {warmupSets.length > 0 && (
+              <>
+                {showWarmups && (
+                  <div className="bg-purple-900 text-white p-3 rounded text-sm mb-3 shadow-md">
+                    <p className="font-semibold mb-1">🔥 Warm-Up Sets:</p>
+                    <ul className="list-disc ml-5">
+                      {warmupSets.map((set, i) => (
+                        <li key={i}>
+                          {set.weight} lbs × {set.reps}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                <button
+                  onClick={() => setShowWarmups(!showWarmups)}
+                  className="w-full bg-gradient-to-r from-orange-400 to-pink-500 text-white font-semibold py-2 px-4 rounded mb-3 hover:from-orange-500 hover:to-pink-600 transition"
+                >
+                  {showWarmups ? "Hide Warm-Up Sets" : "Show Warm-Up Sets"}
+                </button>
+              </>
+            )}
+
+            {/* Info Box */}
+            <div className="bg-gray-800 rounded p-2 text-sm mb-2">
               <div>
-                <strong>Prescribed:</strong> {prescribed}
+                <strong>Last Set Performed:</strong>{" "}
+                {lastActual || "Not Logged Yet"}
               </div>
-            )}
-          </div>
-        )}
+              {prescribed && (
+                <div>
+                  <strong>Prescribed:</strong> {prescribed}
+                </div>
+              )}
+            </div>
 
-        {suggestedWeight && (
-          <>
+            {/* Suggested Weight */}
+            {suggestedWeight && typeof suggestedWeight === "object" && (
+              <>
+                <button
+                  className={`w-full text-white font-semibold rounded p-2 mb-2 ${
+                    showSuggested ? "bg-blue-700" : "bg-blue-600"
+                  }`}
+                  onClick={() => setShowSuggested(!showSuggested)}
+                >
+                  {showSuggested
+                    ? "Hide Suggested Set"
+                    : "Show Suggested Set"}
+                </button>
+                {showSuggested && (
+                  <div className="bg-blue-900 text-white p-2 rounded text-sm mb-2">
+                    <strong>Suggested Set:</strong>{" "}
+                    {suggestedWeight.weight} lbs × {suggestedWeight.reps} reps
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* Inputs */}
+            <input
+              type="text"
+              className="w-full p-2 mb-2 rounded bg-gray-700 text-white"
+              placeholder="Weight (lbs)"
+              value={weight}
+              onChange={(e) => setWeight(e.target.value)}
+            />
+            <input
+              type="text"
+              className="w-full p-2 mb-2 rounded bg-gray-700 text-white"
+              placeholder="Reps"
+              value={reps}
+              onChange={(e) => setReps(e.target.value)}
+            />
+            <textarea
+              className="w-full p-2 mb-2 rounded bg-gray-700 text-white"
+              placeholder="Notes"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+            />
+
+            {/* Action Buttons */}
             <button
-              className={`w-full text-white font-semibold rounded p-2 mb-2 ${
-                showSuggested ? "bg-green-700" : "bg-green-600"
-              }`}
-              onClick={() => setShowSuggested(!showSuggested)}
+              onClick={handleLogSet}
+              className="w-full bg-white text-black font-bold py-2 px-4 rounded mb-2 hover:bg-gray-200 transition"
             >
-              {showSuggested
-                ? "Hide Suggested Weight"
-                : "Show Suggested Weight"}
+              Log Set
             </button>
-            {showSuggested && (
-              <div className="bg-green-900 p-2 rounded text-sm mb-2">
-                <strong>Suggested Working Weight:</strong> {suggestedWeight} lbs
-              </div>
+
+            <button
+              onClick={handleReset}
+              className="w-full bg-red-600 text-white font-semibold py-2 px-4 rounded mb-2 hover:bg-red-700 transition"
+            >
+              Reset
+            </button>
+
+            {setCount >= 3 && (
+              <button
+                onClick={handleAddActualColumn}
+                className="w-full bg-indigo-600 text-white font-semibold py-2 px-4 rounded mb-2 hover:bg-indigo-700 transition"
+              >
+                ➕ Add Actual Column
+              </button>
             )}
           </>
         )}
 
-        {warmupSets.length > 0 && (
-          <>
-            <button
-              className={`w-full text-white font-semibold rounded p-2 mb-2 ${
-                showWarmups ? "bg-purple-700" : "bg-purple-600"
-              }`}
-              onClick={() => setShowWarmups(!showWarmups)}
-            >
-              {showWarmups ? "Hide Warm-Ups" : "Show Warm-Ups"}
-            </button>
-            {showWarmups && (
-              <div className="bg-purple-900 p-2 rounded text-sm mb-2">
-                <strong>WU:</strong>{" "}
-                {warmupSets.map((s) => `${s.weight}x${s.reps}`).join(", ")}
-              </div>
-            )}
-          </>
-        )}
-
-        <input
-          type="text"
-          className="w-full p-2 mb-2 rounded bg-gray-700 text-white"
-          placeholder="Weight (lbs)"
-          value={weight}
-          onChange={(e) => setWeight(e.target.value)}
-        />
-        <input
-          type="text"
-          className="w-full p-2 mb-2 rounded bg-gray-700 text-white"
-          placeholder="Reps"
-          value={reps}
-          onChange={(e) => setReps(e.target.value)}
-        />
-        <textarea
-          className="w-full p-2 mb-2 rounded bg-gray-700 text-white"
-          placeholder="Notes"
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-        />
-
-        <button
-          onClick={handleSubmit}
-          className="w-full p-3 bg-white text-black font-bold rounded mb-2"
-        >
-          Log Set
-        </button>
-
+        {/* Message + Max Set Warning */}
         {message && (
           <p className="text-sm text-center mb-4 text-yellow-400">{message}</p>
         )}
@@ -248,64 +308,6 @@ export default function Home() {
         {setCount >= 3 && (
           <div className="text-red-500 text-center mb-4 font-semibold">
             Max sets reached for this exercise. All 3 sets logged.
-          </div>
-        )}
-
-        {selectedExercise && (
-          <button
-            className="w-full p-2 bg-red-600 text-white font-bold rounded mb-2 hover:bg-red-700"
-            onClick={() => {
-              setWeight("");
-              setReps("");
-              setNotes("");
-              setMessage("");
-              setShowSuggested(false);
-              setShowWarmups(false);
-            }}
-          >
-            Reset
-          </button>
-        )}
-
-        {setCount >= 3 && (
-          <button
-            className="w-full p-2 bg-indigo-600 text-white font-bold rounded hover:bg-indigo-700 mb-2"
-            onClick={async () => {
-              const res = await fetch("/api/logging/addactualcolumn", {
-                method: "POST",
-              });
-
-              if (res.ok) {
-                setMessage("🆕 Added new 'Actual' column.");
-                refreshSetData();
-              } else {
-                setMessage("❌ Failed to add column.");
-              }
-            }}
-          >
-            ➕ Add Actual Column
-          </button>
-        )}
-
-        {setCount > 0 && (
-          <div style={{ marginTop: "20px" }}>
-            <h3>Logged Set Info</h3>
-            <p><strong>Set Count:</strong> {setCount}</p>
-            <p><strong>Last Actual:</strong> {lastActual}</p>
-            {prescribed && <p><strong>Prescribed:</strong> {prescribed}</p>}
-            {suggestedWeight && (
-              <p><strong>Suggested Weight:</strong> {suggestedWeight}</p>
-            )}
-            {warmupSets.length > 0 && (
-              <div>
-                <strong>Warm-up Sets:</strong>
-                <ul>
-                  {warmupSets.map((wu, idx) => (
-                    <li key={idx}>{wu}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
           </div>
         )}
       </div>

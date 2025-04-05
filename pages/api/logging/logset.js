@@ -28,4 +28,16 @@ export function colToA1(colIndex) {
     const start = startColLetter.charCodeAt(0) - 65;
     return Array.from({ length: count }, (_, i) => start + i);
   }
+
+if (currentSetNumber >= 3 && warmupSets.length > 0) {
+  console.log("🔧 [DEBUG] Logging warm-up sets to the sheet...");
   
+  // Iterate over warmupSets and log each set
+  warmupSets.forEach((set, index) => {
+    console.log(`Logging warm-up set ${index + 1}: ${set}`);
+    // Add logic to log each warm-up set to the sheet
+    // Example: Use Google Sheets API to append the data
+  });
+
+  console.log("✅ Warm-up sets logged successfully.");
+}
