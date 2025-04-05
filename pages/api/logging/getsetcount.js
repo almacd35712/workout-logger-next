@@ -84,18 +84,26 @@ export default async function handler(req, res) {
 
     // Determine the prescribed value based on how many actual sets are already filled in
     let prescribed = '';
-    const prescribedIndexes = headers
-      .map((h, i) => h?.toLowerCase().startsWith('prescribed') ? i : -1)
-      .filter(i => i !== -1);
 
-    // Match prescribed to the next actual set count (i.e. 0 = first prescribed, 1 = second...)
-    const nextPrescribedColIndex = prescribedIndexes[setCount] || prescribedIndexes[0];
+    // Try to find the *prescribed column that pairs with the last actual one*
+    if (actualIndexes.length > 0) {
+      const lastActualCol = actualIndexes[actualIndexes.length - 1];
+      const possiblePrescribedCol = lastActualCol - 1;
 
-    if (row[nextPrescribedColIndex]) {
-      prescribed = row[nextPrescribedColIndex]
-        .split('(')[0]
-        .replace(/\s+/g, '')
-        .trim();
+      if (row[possiblePrescribedCol] && typeof row[possiblePrescribedCol] === 'string') {
+        prescribed = row[possiblePrescribedCol].split('(')[0].replace(/\s+/g, '').trim();
+      }
+    }
+
+    // Fallback to first available prescribed if needed
+    if (!prescribed) {
+      const prescribedIndexes = [4, 6, 8, 10];
+      for (const i of prescribedIndexes) {
+        if (row[i] && typeof row[i] === 'string' && row[i].trim()) {
+          prescribed = row[i].split('(')[0].replace(/\s+/g, '').trim();
+          break;
+        }
+      }
     }
 
     console.log('📌 Prescribed raw:', row[2]); // Add this line for debugging
