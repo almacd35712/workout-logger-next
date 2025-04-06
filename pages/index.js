@@ -19,6 +19,7 @@ export default function Home() {
   const [showWarmups, setShowWarmups] = useState(false);
   const [message, setMessage] = useState("");
   const [warmupsLogged, setWarmupsLogged] = useState(false); // 👈 NEW
+  const [activeColumnIndex, setActiveColumnIndex] = useState(null); // Add this line
 
   // Load Day Options
   useEffect(() => {
@@ -49,15 +50,21 @@ export default function Home() {
     )
       .then((res) => res.json())
       .then((data) => {
+        // Safer value assignments with fallbacks
         setSetCount(data.setCount || 0);
-        const cleanLast = data.lastActual?.split('(')[0].trim(); // remove any inline notes
-        setLastActual(cleanLast || "");
-        setPrescribed(data.prescribed || "");
+        setLastActual(data.lastSetPerformed || 'Not Logged Yet');
+        setPrescribed(data.prescribed || '');
         setWarmupSets(data.warmupSets || []);
         setSuggestedWeight(data.suggestedWeight || null);
 
-        if (data.lastActual) {
-          const match = data.lastActual.match(/^(\d+)\s*x\s*(\d+)$/i);
+        // Update active column if needed
+        if (sessionSetCount === 0 && data.activeColumnIndex !== undefined) {
+          setActiveColumnIndex(data.activeColumnIndex);
+        }
+
+        // Calculate suggested weight if we have lastSetPerformed
+        if (data.lastSetPerformed) {
+          const match = data.lastSetPerformed.match(/^(\d+)\s*x\s*(\d+)$/i);
           if (match) {
             const lastWeight = parseInt(match[1], 10);
             const lastReps = parseInt(match[2], 10);
